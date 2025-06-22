@@ -48,7 +48,7 @@ def main():
         
         with col1:
             st.subheader("📸 Original Image")
-            st.image(original_image, use_column_width=True)
+            st.image(original_image, use_container_width=True)
             
         with col2:
             st.subheader("🗜️ Compressed Image")
@@ -75,7 +75,7 @@ def main():
                 compressed_image = Image.fromarray(compressed_array.astype(np.uint8))
                 
                 # Display compressed image
-                st.image(compressed_image, use_column_width=True)
+                st.image(compressed_image, use_container_width=True)
                 
                 progress_bar.progress(100)
                 status_text.text("✅ Compression complete!")
