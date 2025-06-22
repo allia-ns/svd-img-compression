@@ -4,7 +4,14 @@ from PIL import Image
 import matplotlib.pyplot as plt
 import time
 import io
-from utils import compress_image_svd, calculate_compression_stats, create_comparison_plot
+from utils import (
+    compress_image_svd, 
+    calculate_compression_stats, 
+    create_comparison_plot,
+    create_compression_summary,
+    calculate_image_quality_metrics,
+    get_optimal_k_suggestions
+)
 
 def resize_image_if_needed(image, max_dimension=800):
     """
@@ -70,8 +77,24 @@ def main():
             max_value=100,
             value=50,
             step=1,
-            help="Lower percentage = higher compression"
+            help="Higher percentage = less compression, better quality"
         )
+        
+        # Show optimal k suggestions
+        if uploaded_file is not None:
+            try:
+                temp_image = Image.open(uploaded_file)
+                temp_processed, _ = resize_image_if_needed(temp_image)
+                temp_array = np.array(temp_processed)
+                
+                suggestions = get_optimal_k_suggestions(temp_array.shape)
+                
+                with st.expander("💡 Compression Guidelines", expanded=False):
+                    for ratio, info in suggestions.items():
+                        quality_emoji = "🟢" if info['estimated_quality'] == 'High' else "🟡" if info['estimated_quality'] == 'Medium' else "🔴"
+                        st.write(f"{quality_emoji} **{ratio}%**: {info['description']} (k≈{info['k']})")
+            except:
+                pass  # Skip if image can't be loaded temporarily
         
         # Process button
         process_button = st.button("🚀 Compress Image", type="primary")
@@ -121,28 +144,39 @@ def main():
                             start_time = time.time()
                             progress_bar.progress(20, text="Performing SVD decomposition...")
                             
-                            compressed_array, k_values = compress_image_svd(img_array, compression_ratio)
+                            # 🔥 FIXED: Use correct return values from utils
+                            compressed_array, compression_info = compress_image_svd(img_array, compression_ratio)
                             progress_bar.progress(70, text="Reconstructing image...")
                             
                             end_time = time.time()
+                            runtime = end_time - start_time
                             
                             # Convert back to PIL
                             compressed_image = Image.fromarray(compressed_array.astype(np.uint8))
-                            progress_bar.progress(90, text="Finalizing...")
+                            progress_bar.progress(80, text="Calculating statistics...")
                             
-                            # Calculate stats
-                            original_size = img_array.size * img_array.itemsize
-                            compressed_size = sum(k_values) * (img_array.shape[0] + img_array.shape[1] + 1) * img_array.itemsize
-                            runtime = end_time - start_time
+                            # 🔥 FIXED: Use correct parameters for stats calculation
+                            stats = calculate_compression_stats(
+                                original_shape=img_array.shape,
+                                compression_info=compression_info,
+                                runtime=runtime,
+                                file_size_before=uploaded_file.size,
+                                file_size_after=len(io.BytesIO().getvalue()) if compressed_image else None
+                            )
                             
-                            compression_stats = calculate_compression_stats(
-                                original_size, compressed_size, runtime
+                            progress_bar.progress(90, text="Calculating quality metrics...")
+                            
+                            # 🆕 NEW: Calculate image quality metrics
+                            quality_metrics = calculate_image_quality_metrics(
+                                img_array.astype(np.float64), 
+                                compressed_array.astype(np.float64)
                             )
                             
                             # Store results in session state
                             st.session_state.compression_results = {
-                                'stats': compression_stats,
-                                'k_values': k_values,
+                                'stats': stats,
+                                'compression_info': compression_info,
+                                'quality_metrics': quality_metrics,
                                 'img_array': img_array,
                                 'runtime': runtime
                             }
@@ -155,6 +189,8 @@ def main():
                         except Exception as e:
                             st.error(f"❌ Compression failed: {str(e)}")
                             st.info("💡 Try with a smaller image or different compression ratio")
+                            import traceback
+                            st.error(f"Debug info: {traceback.format_exc()}")
                         finally:
                             # Clear progress after completion
                             progress_container.empty()
@@ -163,12 +199,12 @@ def main():
                 if st.session_state.compression_results is not None and st.session_state.compressed_image is not None:
                     st.image(st.session_state.compressed_image, use_container_width=True)
                     
-                    # Display statistics
-                    st.subheader("📊 Compression Statistics")
-                    
+                    # 🔥 FIXED: Display proper statistics
                     stats = st.session_state.compression_results['stats']
+                    quality_metrics = st.session_state.compression_results['quality_metrics']
                     
-                    col_stat1, col_stat2, col_stat3 = st.columns(3)
+                    # Key metrics in columns
+                    col_stat1, col_stat2, col_stat3, col_stat4 = st.columns(4)
                     
                     with col_stat1:
                         st.metric(
@@ -178,37 +214,84 @@ def main():
                     
                     with col_stat2:
                         st.metric(
-                            "Size Reduction", 
-                            f"{stats['size_reduction']:.1f}%"
+                            "Math Compression", 
+                            f"{stats['mathematical_compression_ratio']:.1f}%"
                         )
                     
                     with col_stat3:
                         st.metric(
-                            "Compression Ratio", 
-                            f"{stats['compression_ratio']:.2f}:1"
+                            "Space Savings", 
+                            f"{stats['mathematical_space_savings']:.2f}:1"
                         )
                     
-                    # Display singular values info
-                    st.subheader("🔢 SVD Details")
-                    k_values = st.session_state.compression_results['k_values']
+                    with col_stat4:
+                        st.metric(
+                            "PSNR Quality",
+                            f"{quality_metrics['psnr']:.1f} dB" if quality_metrics['psnr'] != float('inf') else "Perfect"
+                        )
+                    
+                    # 🆕 NEW: Beautiful summary using your utils function
+                    with st.expander("📊 Detailed Compression Summary", expanded=True):
+                        summary = create_compression_summary(stats)
+                        st.code(summary, language=None)
+                    
+                    # 🆕 NEW: Quality metrics section
+                    with st.expander("🎯 Image Quality Analysis", expanded=False):
+                        col_q1, col_q2 = st.columns(2)
+                        
+                        with col_q1:
+                            st.metric("Mean Squared Error", f"{quality_metrics['mse']:.2f}")
+                            st.metric("Mean Difference", f"{quality_metrics['mean_difference']:.2f}")
+                        
+                        with col_q2:
+                            st.metric("PSNR (dB)", f"{quality_metrics['psnr']:.2f}" if quality_metrics['psnr'] != float('inf') else "∞")
+                            st.metric("Variance Ratio", f"{quality_metrics['variance_ratio']:.3f}")
+                        
+                        # Quality interpretation
+                        psnr = quality_metrics['psnr']
+                        if psnr == float('inf'):
+                            quality_desc = "🟢 Perfect (no loss detected)"
+                        elif psnr > 40:
+                            quality_desc = "🟢 Excellent quality"
+                        elif psnr > 30:
+                            quality_desc = "🟡 Good quality"
+                        elif psnr > 20:
+                            quality_desc = "🟠 Fair quality"
+                        else:
+                            quality_desc = "🔴 Poor quality"
+                        
+                        st.info(f"**Quality Assessment:** {quality_desc}")
+                    
+                    # Display SVD details
+                    st.subheader("🔢 SVD Technical Details")
+                    compression_info = st.session_state.compression_results['compression_info']
                     img_array = st.session_state.compression_results['img_array']
                     
-                    if len(img_array.shape) == 3:  # Color image
-                        st.write(f"**Original dimensions:** {img_array.shape[1]} × {img_array.shape[0]} × {img_array.shape[2]}")
-                        st.write(f"**Singular values used per channel:** R={k_values[0]}, G={k_values[1]}, B={k_values[2]}")
-                    else:  # Grayscale
-                        total_singular_values = min(img_array.shape[:2])
-                        st.write(f"**Original dimensions:** {img_array.shape[1]} × {img_array.shape[0]}")
-                        st.write(f"**Singular values used:** {k_values[0]} out of {total_singular_values}")
+                    col_svd1, col_svd2 = st.columns(2)
                     
-                    # Create comparison plot
-                    with st.expander("📈 Detailed Comparison", expanded=True):
-                        fig = create_comparison_plot(
-                            st.session_state.original_image, 
-                            st.session_state.compressed_image, 
-                            stats
-                        )
-                        st.pyplot(fig)
+                    with col_svd1:
+                        st.write(f"**Original dimensions:** {img_array.shape}")
+                        st.write(f"**Channels processed:** {compression_info['channels']}")
+                        st.write(f"**K values used:** {compression_info['k_values']}")
+                    
+                    with col_svd2:
+                        st.write(f"**Original elements:** {compression_info['original_elements']:,}")
+                        st.write(f"**Compressed elements:** {compression_info['compressed_elements']:,}")
+                        avg_k = np.mean(compression_info['k_values'])
+                        st.write(f"**Average K:** {avg_k:.1f}")
+                    
+                    # 🔥 FIXED: Create proper comparison plot using your utils
+                    with st.expander("📈 Visual Comparison & Analysis", expanded=True):
+                        try:
+                            fig = create_comparison_plot(
+                                st.session_state.original_image, 
+                                st.session_state.compressed_image, 
+                                stats
+                            )
+                            st.pyplot(fig)
+                            plt.close(fig)  # Prevent memory leaks
+                        except Exception as e:
+                            st.error(f"Plot generation failed: {str(e)}")
                     
                     # Download section
                     st.subheader("💾 Download Compressed Image")
@@ -230,21 +313,38 @@ def main():
                         )
                     
                     with col_download2:
-                        original_kb = len(byte_im) / 1024
-                        st.metric("Download Size", f"{original_kb:.1f} KB")
+                        download_kb = len(byte_im) / 1024
+                        st.metric("Download Size", f"{download_kb:.1f} KB")
+                        
+                        # Show file size comparison if available
+                        if 'file_compression_ratio' in stats:
+                            if stats['file_compression_ratio'] > 0:
+                                st.success(f"📉 File reduced by {stats['file_compression_ratio']:.1f}%")
+                            else:
+                                st.info("📈 File size increased (PNG encoding)")
                         
         except Exception as e:
             st.error(f"❌ Error loading image: {str(e)}")
             st.info("💡 Please try with a different image file")
+            import traceback
+            st.error(f"Debug: {traceback.format_exc()}")
     
     else:
         st.info("👆 Please upload an image file to get started!")
         
         # Show sample images info
-        with st.expander("📝 Recommended Test Images & Tips", expanded=True):
+        with st.expander("📝 How SVD Compression Works & Tips", expanded=True):
             col_tips1, col_tips2 = st.columns(2)
             
             with col_tips1:
+                st.write("""
+                **🧮 How SVD Works:**
+                - Decomposes image into 3 matrices: U, Σ, V^T
+                - Keeps only top k singular values
+                - Reconstructs using fewer components
+                - Higher k% = better quality, less compression
+                """)
+                
                 st.write("""
                 **📏 Recommended Image Sizes:**
                 - **Small test:** 200×200 to 500×500 pixels
@@ -256,10 +356,18 @@ def main():
             with col_tips2:
                 st.write("""
                 **✨ Tips for Best Results:**
-                - Images with details show better compression effects
-                - Try different compression ratios (10%, 50%, 90%)
+                - Images with details show compression effects better
+                - Try different ratios: 10% (heavy), 50% (balanced), 90% (light)
                 - Landscapes and portraits work great
-                - Formats supported: PNG, JPG, JPEG, BMP, TIFF
+                - Watch the PSNR quality metric (>30 dB is good)
+                """)
+                
+                st.write("""
+                **🎯 Quality Guidelines:**
+                - 🟢 >40 dB PSNR: Excellent quality
+                - 🟡 30-40 dB: Good quality  
+                - 🟠 20-30 dB: Fair quality
+                - 🔴 <20 dB: Poor quality
                 """)
             
             st.info("🚀 **Performance:** Images are auto-resized to max 800×800 for optimal processing speed!")
