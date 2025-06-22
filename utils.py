@@ -76,6 +76,8 @@ def compress_channel_svd(channel_data, compression_ratio):
     """
     
     try:
+        if np.any(np.isnan(channel_data)) or np.any(np.isinf(channel_data)):
+            raise ValueError("Image contains invalid values (NaN or Inf)")
         # Ensure data is float for SVD calculations
         channel_data = channel_data.astype(np.float64)
         
@@ -361,3 +363,13 @@ def get_optimal_k_suggestions(image_shape, target_ratios=[10, 25, 50, 75, 90]):
         }
     
     return suggestions
+
+def analyze_singular_values(S, k):
+    """Analyze singular value distribution"""
+    return {
+        'total_energy': np.sum(S**2),
+        'retained_energy': np.sum(S[:k]**2),
+        'energy_ratio': np.sum(S[:k]**2) / np.sum(S**2) * 100,
+        'largest_sv': S[0],
+        'smallest_retained_sv': S[k-1] if k > 0 else 0
+    }
