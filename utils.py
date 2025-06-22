@@ -15,6 +15,13 @@ def compress_image_svd(image_array, compression_ratio):
         k_values: list of k values used for each channel
     """
     
+    # Validate input
+    if not isinstance(image_array, np.ndarray):
+        raise ValueError("Input must be a numpy array")
+    
+    if not (1 <= compression_ratio <= 100):
+        raise ValueError("Compression ratio must be between 1 and 100")
+    
     # Handle grayscale vs color images
     if len(image_array.shape) == 2:
         # Grayscale image
@@ -52,25 +59,32 @@ def compress_channel_svd(channel_data, compression_ratio):
         k: number of singular values used
     """
     
-    # Perform SVD decomposition
-    U, S, Vt = np.linalg.svd(channel_data, full_matrices=False)
-    
-    # Calculate number of singular values to keep
-    total_singular_values = len(S)
-    k = max(1, int(total_singular_values * compression_ratio / 100))
-    
-    # Keep only top k singular values
-    U_k = U[:, :k]
-    S_k = S[:k]
-    Vt_k = Vt[:k, :]
-    
-    # Reconstruct the channel
-    reconstructed_channel = U_k @ np.diag(S_k) @ Vt_k
-    
-    # Ensure values are in valid range [0, 255]
-    reconstructed_channel = np.clip(reconstructed_channel, 0, 255)
-    
-    return reconstructed_channel, k
+    try:
+        # Ensure data is float for SVD calculations
+        channel_data = channel_data.astype(np.float64)
+        
+        # Perform SVD decomposition
+        U, S, Vt = np.linalg.svd(channel_data, full_matrices=False)
+        
+        # Calculate number of singular values to keep
+        total_singular_values = len(S)
+        k = max(1, int(total_singular_values * compression_ratio / 100))
+        
+        # Keep only top k singular values
+        U_k = U[:, :k]
+        S_k = S[:k]
+        Vt_k = Vt[:k, :]
+        
+        # Reconstruct the channel
+        reconstructed_channel = U_k @ np.diag(S_k) @ Vt_k
+        
+        # Ensure values are in valid range [0, 255]
+        reconstructed_channel = np.clip(reconstructed_channel, 0, 255)
+        
+        return reconstructed_channel, k
+        
+    except Exception as e:
+        raise RuntimeError(f"SVD compression failed: {str(e)}")
 
 def calculate_compression_stats(original_size, compressed_size, runtime):
     """
