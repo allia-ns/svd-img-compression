@@ -272,13 +272,13 @@ def main():
                         if psnr == float('inf'):
                             quality_desc = "🟢 Tidak ada perbedaan terdeteksi"
                         elif psnr > 40:
-                            quality_desc = "🟢 Excellent - hampir tidak terlihat perbedaan"
+                            quality_desc = "🟢 Sangat Baik - hampir tidak terlihat perbedaan"
                         elif psnr > 30:
-                            quality_desc = "🟡 Good - perbedaan minimal"
+                            quality_desc = "🟡 Baik - perbedaan minimal"
                         elif psnr > 20:
-                            quality_desc = "🟠 Acceptable - ada perbedaan visible"
+                            quality_desc = "🟠 Cukup - ada perbedaan visible"
                         else:
-                            quality_desc = "🔴 Poor - perbedaan sangat terlihat"
+                            quality_desc = "🔴 Kurang - perbedaan sangat terlihat"
                         
                         st.info(quality_desc)
                 
