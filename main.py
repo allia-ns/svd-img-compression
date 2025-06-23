@@ -77,7 +77,7 @@ def main():
             max_value=100,
             value=50,
             step=1,
-            help="Semakin tinggi = kompresi semakin berat"
+            help="Semakin tinggi = kompresi semakin ringan"
         )
         
         # Tombol proses
