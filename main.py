@@ -90,6 +90,7 @@ def main():
                 suggestions = get_optimal_k_suggestions(temp_array.shape)
                 
                 with st.expander("💡 Panduan Kompresi", expanded=False):
+                    st.info("**K** = jumlah komponen utama yang dipertahankan, dihitung otomatis dari % kompresi")
                     for ratio, info in suggestions.items():
                         quality_emoji = "🟢" if info['estimated_quality'] == 'High' else "🟡" if info['estimated_quality'] == 'Medium' else "🔴"
                         st.write(f"{quality_emoji} **{ratio}%**: {info['description']} (k≈{info['k']})")
@@ -119,11 +120,12 @@ def main():
             if was_resized:
                 st.warning(f"🔄 Gambar otomatis diresize dari {original_image.size} ke {processed_image.size} untuk pemrosesan optimal")
             
-            col1, col2 = st.columns(2)
+            # Layout yang lebih clean dan aligned
+            col1, col2 = st.columns(2, gap="large")
             
             with col1:
                 st.subheader("📸 Gambar Asli")
-                st.image(processed_image, width=450, caption=f"Dimensi: {processed_image.size[0]} × {processed_image.size[1]}")
+                st.image(processed_image, use_column_width=True, caption=f"Dimensi: {processed_image.size[0]} × {processed_image.size[1]}")
                 
             with col2:
                 st.subheader("🗜️ Gambar Terkompresi")
@@ -196,25 +198,46 @@ def main():
                 
                 # Tampilkan hasil jika tersedia
                 if st.session_state.compression_results is not None and st.session_state.compressed_image is not None:
-                    st.image(st.session_state.compressed_image, width=450, caption="Hasil kompresi SVD")
-                    
-                    # Quick summary metrics - compact version
-                    stats = st.session_state.compression_results['stats']
-                    quality_metrics = st.session_state.compression_results['quality_metrics']
-                    
-                    # Quick metrics dalam 2x2 grid yang lebih compact
-                    col_q1, col_q2 = st.columns(2)
-                    
-                    with col_q1:
-                        st.metric("⏱️ Waktu", f"{stats['runtime']:.2f}s")
-                        st.metric("🗜️ Kompresi", f"{stats['mathematical_compression_ratio']:.1f}%")
-                    
-                    with col_q2:
-                        st.metric("💾 Hemat", f"{stats['mathematical_space_savings']:.1f}:1")
-                        psnr_display = f"{quality_metrics['psnr']:.1f} dB" if quality_metrics['psnr'] != float('inf') else "Perfect"
-                        st.metric("🎯 PSNR", psnr_display)
+                    st.image(st.session_state.compressed_image, use_column_width=True, caption="Hasil kompresi SVD")
             
-            # === DETAILED ANALYSIS SECTION - DIPINDAH KE BAWAH ===
+            # Quick metrics - better aligned
+            if st.session_state.compression_results is not None:
+                stats = st.session_state.compression_results['stats']
+                quality_metrics = st.session_state.compression_results['quality_metrics']
+                
+                st.markdown("---")
+                st.subheader("📊 Ringkasan Cepat")
+                
+                # Improved metrics layout - 4 columns for better alignment
+                metric_col1, metric_col2, metric_col3, metric_col4 = st.columns(4)
+                
+                with metric_col1:
+                    st.metric("⏱️ Waktu Proses", f"{stats['runtime']:.2f}s")
+                
+                with metric_col2:
+                    st.metric("🗜️ Rasio Kompresi", f"{stats['mathematical_compression_ratio']:.1f}%")
+                
+                with metric_col3:
+                    psnr_display = f"{quality_metrics['psnr']:.1f} dB" if quality_metrics['psnr'] != float('inf') else "Perfect"
+                    st.metric("🎯 PSNR", psnr_display, help="Peak Signal-to-Noise Ratio - ukuran kualitas gambar. Semakin tinggi semakin baik (>30 dB = bagus)")
+                
+                with metric_col4:
+                    # Quality status with emoji
+                    psnr = quality_metrics['psnr']
+                    if psnr == float('inf'):
+                        quality_status = "🟢 Sempurna"
+                    elif psnr > 40:
+                        quality_status = "🟢 Sangat Baik"
+                    elif psnr > 30:
+                        quality_status = "🟡 Baik"
+                    elif psnr > 20:
+                        quality_status = "🟠 Cukup"
+                    else:
+                        quality_status = "🔴 Kurang"
+                    
+                    st.metric("✨ Status Kualitas", quality_status)
+            
+            # === DETAILED ANALYSIS SECTION ===
             if st.session_state.compression_results is not None:
                 st.markdown("---")
                 st.header("📊 Analisis Detail Kompresi")
@@ -289,8 +312,8 @@ def main():
                         st.write("**📐 Informasi Dimensi:**")
                         st.write(f"• Dimensi asli: {img_array.shape}")
                         st.write(f"• Channel yang diproses: {compression_info['channels']}")
-                        st.write(f"• Elemen asli: {compression_info['original_elements']:,}")
-                        st.write(f"• Elemen terkompresi: {compression_info['compressed_elements']:,}")
+                        st.write(f"• Jumlah elemen asli: {compression_info['original_elements']:,}")
+                        st.write(f"• Jumlah elemen setelah dikompres: {compression_info['compressed_elements']:,}")
                     
                     with col_svd2:
                         st.write("**🎛️ Parameter SVD:**")
@@ -330,12 +353,8 @@ def main():
                         download_kb = len(byte_im) / 1024
                         st.metric("Ukuran File", f"{download_kb:.1f} KB")
                         
-                        # Tampilkan perbandingan ukuran file jika tersedia
-                        if 'file_compression_ratio' in stats:
-                            if stats['file_compression_ratio'] > 0:
-                                st.success(f"📉 Hemat {stats['file_compression_ratio']:.1f}%")
-                            else:
-                                st.info("📈 Encoding PNG")
+                        # Tampilkan info file size
+                        st.info("📈 Format PNG")
                         
         except Exception as e:
             st.error(f"❌ Error memuat gambar: {str(e)}")
