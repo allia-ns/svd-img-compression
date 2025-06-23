@@ -123,8 +123,7 @@ def main():
             
             with col1:
                 st.subheader("📸 Gambar Asli")
-                st.image(processed_image, use_container_width=True)
-                st.write(f"**Dimensi:** {processed_image.size[0]} × {processed_image.size[1]}")
+                st.image(processed_image, width=450, caption=f"Dimensi: {processed_image.size[0]} × {processed_image.size[1]}")
                 
             with col2:
                 st.subheader("🗜️ Gambar Terkompresi")
@@ -197,72 +196,89 @@ def main():
                 
                 # Tampilkan hasil jika tersedia
                 if st.session_state.compression_results is not None and st.session_state.compressed_image is not None:
-                    st.image(st.session_state.compressed_image, use_container_width=True)
+                    st.image(st.session_state.compressed_image, width=450, caption="Hasil kompresi SVD")
                     
-                    # Tampilkan statistik yang tepat
+                    # Quick summary metrics - compact version
                     stats = st.session_state.compression_results['stats']
                     quality_metrics = st.session_state.compression_results['quality_metrics']
                     
-                    # Metrik utama dalam kolom
-                    col_stat1, col_stat2, col_stat3, col_stat4 = st.columns(4)
+                    # Quick metrics dalam 2x2 grid yang lebih compact
+                    col_q1, col_q2 = st.columns(2)
                     
-                    with col_stat1:
-                        st.metric(
-                            "Waktu Proses", 
-                            f"{stats['runtime']:.3f}s"
-                        )
+                    with col_q1:
+                        st.metric("⏱️ Waktu", f"{stats['runtime']:.2f}s")
+                        st.metric("🗜️ Kompresi", f"{stats['mathematical_compression_ratio']:.1f}%")
                     
-                    with col_stat2:
-                        st.metric(
-                            "Kompresi Matematis", 
-                            f"{stats['mathematical_compression_ratio']:.1f}%"
-                        )
+                    with col_q2:
+                        st.metric("💾 Hemat", f"{stats['mathematical_space_savings']:.1f}:1")
+                        psnr_display = f"{quality_metrics['psnr']:.1f} dB" if quality_metrics['psnr'] != float('inf') else "Perfect"
+                        st.metric("🎯 PSNR", psnr_display)
+            
+            # === DETAILED ANALYSIS SECTION - DIPINDAH KE BAWAH ===
+            if st.session_state.compression_results is not None:
+                st.markdown("---")
+                st.header("📊 Analisis Detail Kompresi")
+                
+                # Tab organization untuk better UX
+                tab1, tab2, tab3, tab4 = st.tabs(["📈 Ringkasan", "🎯 Kualitas", "🔢 Detail SVD", "📥 Unduh"])
+                
+                with tab1:
+                    col_summary1, col_summary2 = st.columns([2, 1])
                     
-                    with col_stat3:
-                        st.metric(
-                            "Penghematan Ruang", 
-                            f"{stats['mathematical_space_savings']:.2f}:1"
-                        )
-                    
-                    with col_stat4:
-                        st.metric(
-                            "Kualitas PSNR",
-                            f"{quality_metrics['psnr']:.1f} dB" if quality_metrics['psnr'] != float('inf') else "Sempurna"
-                        )
-                    
-                    # Ringkasan detail menggunakan fungsi utils
-                    with st.expander("📊 Ringkasan Kompresi Detail", expanded=True):
+                    with col_summary1:
+                        st.subheader("📋 Ringkasan Kompresi")
                         summary = create_compression_summary(stats)
                         st.code(summary, language=None)
                     
-                    # Bagian metrik kualitas
-                    with st.expander("🎯 Analisis Kualitas Gambar", expanded=False):
-                        col_q1, col_q2 = st.columns(2)
-                        
-                        with col_q1:
-                            st.metric("Mean Squared Error", f"{quality_metrics['mse']:.2f}")
-                            st.metric("Rata-rata Perbedaan", f"{quality_metrics['mean_difference']:.2f}")
-                        
-                        with col_q2:
-                            st.metric("PSNR (dB)", f"{quality_metrics['psnr']:.2f}" if quality_metrics['psnr'] != float('inf') else "∞")
-                            st.metric("Rasio Varians", f"{quality_metrics['variance_ratio']:.3f}")
-                        
+                    with col_summary2:
+                        st.subheader("🎨 Perbandingan Visual")
+                        try:
+                            fig = create_comparison_plot(
+                                st.session_state.original_image, 
+                                st.session_state.compressed_image, 
+                                stats
+                            )
+                            st.pyplot(fig, use_container_width=True)
+                            plt.close(fig)  # Mencegah memory leak
+                        except Exception as e:
+                            st.error(f"Pembuatan plot gagal: {str(e)}")
+                
+                with tab2:
+                    st.subheader("🎯 Analisis Kualitas Gambar")
+                    
+                    col_q1, col_q2, col_q3 = st.columns(3)
+                    
+                    with col_q1:
+                        st.metric("Mean Squared Error", f"{quality_metrics['mse']:.2f}")
+                        st.metric("Rata-rata Perbedaan", f"{quality_metrics['mean_difference']:.2f}")
+                    
+                    with col_q2:
+                        st.metric("PSNR (dB)", f"{quality_metrics['psnr']:.2f}" if quality_metrics['psnr'] != float('inf') else "∞")
+                        st.metric("Rasio Varians", f"{quality_metrics['variance_ratio']:.3f}")
+                    
+                    with col_q3:
                         # Interpretasi kualitas
                         psnr = quality_metrics['psnr']
                         if psnr == float('inf'):
-                            quality_desc = "🟢 Sempurna (tidak ada kehilangan terdeteksi)"
+                            quality_desc = "🟢 Sempurna"
+                            quality_detail = "Tidak ada kehilangan terdeteksi"
                         elif psnr > 40:
-                            quality_desc = "🟢 Kualitas sangat baik"
+                            quality_desc = "🟢 Sangat Baik"
+                            quality_detail = "Kualitas excellent, hampir tidak terlihat perbedaan"
                         elif psnr > 30:
-                            quality_desc = "🟡 Kualitas baik"
+                            quality_desc = "🟡 Baik"
+                            quality_detail = "Kualitas good, perbedaan minimal"
                         elif psnr > 20:
-                            quality_desc = "🟠 Kualitas cukup"
+                            quality_desc = "🟠 Cukup"
+                            quality_detail = "Kualitas acceptable, ada perbedaan visible"
                         else:
-                            quality_desc = "🔴 Kualitas kurang"
+                            quality_desc = "🔴 Kurang"
+                            quality_detail = "Kualitas poor, perbedaan sangat terlihat"
                         
-                        st.info(f"**Penilaian Kualitas:** {quality_desc}")
-                    
-                    # Tampilkan detail SVD
+                        st.metric("Status Kualitas", quality_desc)
+                        st.info(quality_detail)
+                
+                with tab3:
                     st.subheader("🔢 Detail Teknis SVD")
                     compression_info = st.session_state.compression_results['compression_info']
                     img_array = st.session_state.compression_results['img_array']
@@ -270,30 +286,25 @@ def main():
                     col_svd1, col_svd2 = st.columns(2)
                     
                     with col_svd1:
-                        st.write(f"**Dimensi asli:** {img_array.shape}")
-                        st.write(f"**Channel yang diproses:** {compression_info['channels']}")
-                        st.write(f"**Nilai K yang digunakan:** {compression_info['k_values']}")
+                        st.write("**📐 Informasi Dimensi:**")
+                        st.write(f"• Dimensi asli: {img_array.shape}")
+                        st.write(f"• Channel yang diproses: {compression_info['channels']}")
+                        st.write(f"• Elemen asli: {compression_info['original_elements']:,}")
+                        st.write(f"• Elemen terkompresi: {compression_info['compressed_elements']:,}")
                     
                     with col_svd2:
-                        st.write(f"**Elemen asli:** {compression_info['original_elements']:,}")
-                        st.write(f"**Elemen terkompresi:** {compression_info['compressed_elements']:,}")
+                        st.write("**🎛️ Parameter SVD:**")
+                        st.write(f"• Nilai K yang digunakan: {compression_info['k_values']}")
                         avg_k = np.mean(compression_info['k_values'])
-                        st.write(f"**Rata-rata K:** {avg_k:.1f}")
-                    
-                    # Buat plot perbandingan menggunakan utils
-                    with st.expander("📈 Perbandingan Visual & Analisis", expanded=True):
-                        try:
-                            fig = create_comparison_plot(
-                                st.session_state.original_image, 
-                                st.session_state.compressed_image, 
-                                stats
-                            )
-                            st.pyplot(fig)
-                            plt.close(fig)  # Mencegah memory leak
-                        except Exception as e:
-                            st.error(f"Pembuatan plot gagal: {str(e)}")
-                    
-                    # Bagian unduh
+                        st.write(f"• Rata-rata K: {avg_k:.1f}")
+                        
+                        # Rasio singular values yang dipertahankan
+                        if len(compression_info['k_values']) > 0:
+                            max_possible_k = min(img_array.shape[:2]) if len(img_array.shape) >= 2 else 1
+                            retention_rate = (avg_k / max_possible_k) * 100
+                            st.write(f"• Retensi singular values: {retention_rate:.1f}%")
+                
+                with tab4:
                     st.subheader("💾 Unduh Gambar Terkompresi")
                     
                     # Konversi ke bytes untuk unduh
@@ -301,27 +312,30 @@ def main():
                     st.session_state.compressed_image.save(buf, format='PNG')
                     byte_im = buf.getvalue()
                     
-                    col_download1, col_download2 = st.columns([2, 1])
+                    col_download1, col_download2 = st.columns([3, 1])
                     
                     with col_download1:
                         st.download_button(
-                            label="📥 Unduh Gambar Terkompresi",
+                            label="📥 Unduh Gambar Terkompresi (PNG)",
                             data=byte_im,
                             file_name=f"compressed_{uploaded_file.name.split('.')[0]}_ratio{compression_ratio}.png",
                             mime="image/png",
-                            help="Klik untuk mengunduh gambar terkompresi"
+                            help="Klik untuk mengunduh gambar terkompresi dalam format PNG"
                         )
+                        
+                        # Info format
+                        st.info("💡 **Format:** PNG dipilih untuk menjaga kualitas hasil kompresi SVD")
                     
                     with col_download2:
                         download_kb = len(byte_im) / 1024
-                        st.metric("Ukuran Unduhan", f"{download_kb:.1f} KB")
+                        st.metric("Ukuran File", f"{download_kb:.1f} KB")
                         
                         # Tampilkan perbandingan ukuran file jika tersedia
                         if 'file_compression_ratio' in stats:
                             if stats['file_compression_ratio'] > 0:
-                                st.success(f"📉 File dikurangi sebesar {stats['file_compression_ratio']:.1f}%")
+                                st.success(f"📉 Hemat {stats['file_compression_ratio']:.1f}%")
                             else:
-                                st.info("📈 Ukuran file bertambah (encoding PNG)")
+                                st.info("📈 Encoding PNG")
                         
         except Exception as e:
             st.error(f"❌ Error memuat gambar: {str(e)}")
