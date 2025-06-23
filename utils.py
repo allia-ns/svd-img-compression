@@ -165,7 +165,7 @@ def create_compression_summary(stats):
    • Reduksi ruang: {stats['mathematical_compression_ratio']:.1f}%
    • Rasio kompresi: {stats['mathematical_space_savings']:.2f}:1
    • Elemen data asli: {stats['original_elements']:,}
-   • Elemen data terkompresi: {stats['compressed_elements']:,}
+   • Elemen data setelah dikompres: {stats['compressed_elements']:,}
 
 🎯 Parameter SVD:
    • Singular values digunakan (k): {stats['avg_k']:.0f} dari {stats['max_possible_k']}
