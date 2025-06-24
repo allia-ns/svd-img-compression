@@ -128,11 +128,6 @@ def main():
                             start_time = time.time()
                             progress_bar.progress(20, text="Melakukan SVD...")
                             
-                            # Hitung k berdasarkan compression ratio (inverse logic)
-                            # compression_ratio tinggi = k kecil = kompresi berat
-                            k_target = int((100 - compression_ratio) / 100 * min(img_array.shape[:2]))
-                            k_target = max(1, k_target)  # Minimal k=1
-                            
                             compressed_array, compression_info = compress_image_svd(img_array, compression_ratio)
                             progress_bar.progress(70, text="Merekonstruksi gambar...")
                             
