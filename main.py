@@ -9,8 +9,8 @@ from utils import (
     calculate_compression_stats, 
     create_comparison_plot,
     create_compression_summary,
-    calculate_image_quality_metrics,
-    get_optimal_k_suggestions
+    calculate_image_quality_metrics
+    # ❌ REMOVED: get_optimal_k_suggestions - this function doesn't exist in utils.py!
 )
 
 def resize_image_if_needed(image, max_dimension=800):
@@ -138,13 +138,18 @@ def main():
                             compressed_image = Image.fromarray(compressed_array.astype(np.uint8))
                             progress_bar.progress(80, text="Menghitung statistik...")
                             
+                            # ✅ Fixed: Calculate file size properly
+                            buf = io.BytesIO()
+                            compressed_image.save(buf, format='PNG')
+                            compressed_file_size = len(buf.getvalue())
+                            
                             # Hitung stats dengan logic yang benar
                             stats = calculate_compression_stats(
                                 original_shape=img_array.shape,
                                 compression_info=compression_info,
                                 runtime=runtime,
                                 file_size_before=uploaded_file.size,
-                                file_size_after=len(io.BytesIO().getvalue()) if compressed_image else None
+                                file_size_after=compressed_file_size
                             )
                             
                             # Fix rasio kompresi untuk display
