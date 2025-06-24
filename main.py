@@ -313,10 +313,10 @@ def main():
             kemudian merekonstruksi dengan hanya menggunakan komponen yang paling penting.
             
             **Level Kompresi:**
-            - **1-20%**: Kompresi ringan, kualitas tinggi
-            - **21-50%**: Kompresi sedang, seimbang  
-            - **51-80%**: Kompresi berat, ukuran kecil
-            - **81-100%**: Kompresi sangat berat, kualitas rendah
+            - **81-10%**: Kompresi ringan, kualitas tinggi
+            - **51-80%**: Kompresi sedang, seimbang  
+            - **21-50%**: Kompresi berat, ukuran kecil
+            - **1-20%**: Kompresi sangat berat, kualitas rendah
             """)
 
 if __name__ == "__main__":
