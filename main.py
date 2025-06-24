@@ -10,7 +10,6 @@ from utils import (
     create_comparison_plot,
     create_compression_summary,
     calculate_image_quality_metrics
-    # ❌ REMOVED: get_optimal_k_suggestions - this function doesn't exist in utils.py!
 )
 
 def resize_image_if_needed(image, max_dimension=800):
