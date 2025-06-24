@@ -284,39 +284,3 @@ def calculate_image_quality_metrics(original_array, compressed_array):
         'mean_difference': abs(mean_orig - mean_comp),
         'variance_ratio': var_comp / var_orig if var_orig > 0 else 0
     }
-
-def get_optimal_k_suggestions(image_shape, target_ratios=[10, 25, 50, 75, 90]):
-    """
-    Saran nilai k optimal untuk rasio kompresi berbeda berdasarkan kasus penggunaan
-    """
-    
-    max_k = min(image_shape[:2])
-    suggestions = {}
-    
-    descriptions = {
-        10: "Kompresi berat - struktur dasar saja",
-        25: "Kompresi tinggi - bagus untuk thumbnail", 
-        50: "Kompresi sedang - kualitas/ukuran seimbang",
-        75: "Kompresi ringan - kualitas tinggi",
-        90: "Kompresi minimal - mendekati kualitas asli"
-    }
-    
-    for ratio in target_ratios:
-        k = max(1, int(max_k * ratio / 100))
-        suggestions[ratio] = {
-            'k': k,
-            'description': descriptions.get(ratio, f"Kompresi {ratio}%"),
-            'estimated_quality': 'Tinggi' if ratio >= 75 else 'Sedang' if ratio >= 50 else 'Rendah'
-        }
-    
-    return suggestions
-
-def analyze_singular_values(S, k):
-    """Analisis distribusi singular values"""
-    return {
-        'total_energy': np.sum(S**2),
-        'retained_energy': np.sum(S[:k]**2),
-        'energy_ratio': np.sum(S[:k]**2) / np.sum(S**2) * 100,
-        'largest_sv': S[0],
-        'smallest_retained_sv': S[k-1] if k > 0 else 0
-    }
